@@ -16,7 +16,6 @@ def carica_dati():
     lista_df = []
     for f in file_csv:
         try:
-            # Legge tutto come testo per non fare confusione
             df = pd.read_csv(f, encoding='latin1', header=None, dtype=str)
             lista_df.append(df)
         except:
@@ -26,11 +25,12 @@ def carica_dati():
 db = carica_dati()
 
 if db is not None:
-    # Pulizia: togliamo le righe vuote e trasformiamo in parole
-    db = db.dropna(subset=[1, 2]) 
+    # --- MODIFICA QUI ---
+    # Usiamo la colonna 2 per la Casa e la 3 per l'Ospite (saltiamo la data)
+    db[2] = db[2].fillna("Sconosciuta").astype(str)
+    db[3] = db[3].fillna("Sconosciuta").astype(str)
     
-    # Se vedi ancora DATE invece di nomi, cambia l'1 con 2 e il 2 con 3 qui sotto:
-    squadre = sorted(db[1].unique().astype(str))
+    squadre = sorted([s for s in db[2].unique() if s != "Sconosciuta"])
 
     col1, col2 = st.columns(2)
     with col1:
@@ -39,13 +39,12 @@ if db is not None:
         ospite = st.selectbox("Squadra Ospite", squadre)
 
     if st.button("GENERA PRONOSTICO"):
-        # Filtra le partite
-        f_casa = db[db[1] == casa]
-        f_ospite = db[db[2] == ospite]
+        f_casa = db[db[2] == casa]
+        f_ospite = db[db[3] == ospite]
         
-        # Converte i gol in numeri (colonne 3 e 4) e fa la media
-        m_casa = pd.to_numeric(f_casa[3], errors='coerce').mean()
-        m_ospite = pd.to_numeric(f_ospite[4], errors='coerce').mean()
+        # I gol dovrebbero essere nelle colonne 4 e 5
+        m_casa = pd.to_numeric(f_casa[4], errors='coerce').mean()
+        m_ospite = pd.to_numeric(f_ospite[5], errors='coerce').mean()
 
         if pd.isna(m_casa) or pd.isna(m_ospite):
             st.error("Dati gol non trovati. Prova a cambiare squadre!")
