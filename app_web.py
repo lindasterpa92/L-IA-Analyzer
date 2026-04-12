@@ -3,18 +3,19 @@ import pandas as pd
 import glob
 import os
 
-# Configurazione Pagina
-st.set_page_config(page_title="Analizzatore L-IA", page_icon="🤖")
-
 # --- INTERFACCIA ASSISTENTE ---
 st.title("🤖 Analizzatore L-IA")
 
-# Messaggio di benvenuto universale
-st.markdown("""
-### Benvenuto nel tuo Assistente Virtuale! 👋 
-Sono qui per aiutarti ad analizzare le partite di calcio. 
-Utilizzo i dati storici per calcolare le medie gol e suggerirti il pronostico più probabile.
+# Chiediamo il nome
+nome_utente = st.text_input("Ciao! Come ti chiami?", "Ospite")
+
+# Messaggio di benvenuto che usa il nome inserito
+st.markdown(f"""
+### Ciao {nome_utente}! 👋 
+Sono il tuo Assistente Virtuale. Sono qui per aiutarti ad analizzare le partite di calcio 
+utilizzando i dati storici per calcolare le medie gol e suggerirti il pronostico più probabile.
 """)
+
 
 @st.cache_data
 def carica_dati():
