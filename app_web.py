@@ -12,19 +12,26 @@ def carica_dati():
     file_csv = glob.glob(percorso)
     if not file_csv:
         return None
-    # Carichiamo i file ignorando gli errori di riga
-    lista_df = [pd.read_csv(f, encoding='latin1', header=None, on_bad_lines='skip') for f in file_csv]
-    return pd.concat(lista_df, ignore_index=True)
+    lista_df = []
+    for f in file_csv:
+        try:
+            # Carichiamo il file forzando tutto come testo all'inizio
+            df = pd.read_csv(f, encoding='latin1', header=None, dtype=str)
+            lista_df.append(df)
+        except:
+            continue
+    return pd.concat(lista_df, ignore_index=True) if lista_df else None
 
 db = carica_dati()
 
 if db is not None:
-    # Trasformiamo le colonne 1 e 2 in testo "puro" per evitare errori
-    db[1] = db[1].astype(str)
-    db[2] = db[2].astype(str)
+    # Pulizia profonda: eliminiamo i valori nulli e convertiamo in stringa
+    db[1] = db[1].fillna('').astype(str)
+    db[2] = db[2].fillna('').astype(str)
     
-    # Creiamo la lista squadre prendendo solo nomi validi
-    squadre = sorted([s for s in db[1].unique() if s != 'nan' and len(s) > 1])
+    # Prendiamo le squadre: solo se il nome non è vuoto e non è 'nan'
+    lista_squadre = db[1].unique().tolist()
+    squadre = sorted([s for s in lista_squadre if s.strip() and s.lower() != 'nan'])
 
     col1, col2 = st.columns(2)
     with col1:
@@ -36,19 +43,18 @@ if db is not None:
         dati_casa = db[db[1] == casa]
         dati_ospite = db[db[2] == ospite]
 
-        # Convertiamo i gol in numeri (colonne 3 e 4)
+        # Convertiamo i gol (colonne 3 e 4) in numeri solo ora che ci servono
         m_casa = pd.to_numeric(dati_casa[3], errors='coerce').mean()
         m_ospite = pd.to_numeric(dati_ospite[4], errors='coerce').mean()
 
         if pd.isna(m_casa) or pd.isna(m_ospite):
-            st.error("Dati gol non trovati. Sicura che i gol siano nelle colonne 3 e 4?")
-            # Mostriamo un'anteprima per capire dove sono i gol
-            st.write("Anteprima dati per aiutarti:")
-            st.dataframe(dati_casa.head(1))
+            st.error("Dati gol non trovati nelle colonne 3 e 4.")
+            # Ti mostro i dati così capiamo dove sono i gol
+            st.write("Aiutami a capire: dove vedi i gol in questa riga?")
+            st.table(dati_casa.head(1))
         else:
             st.balloons()
-            st.metric(label=f"Pronostico {casa}", value=f"{m_casa:.1f}")
-            st.metric(label=f"Pronostico {ospite}", value=f"{m_ospite:.1f}")
+            st.subheader(f"Pronostico: {casa} {m_casa:.1f} - {m_ospite:.1f} {ospite}")
             
             somma = m_casa + m_ospite
             if somma > 2.5:
@@ -56,4 +62,4 @@ if db is not None:
             else:
                 st.info("CONSIGLIO: UNDER 2.5 🛡️")
 else:
-    st.warning("⚠️ Non trovo la cartella 'dati' o i file .csv su GitHub!")
+    st.warning("⚠️ Controlla la cartella 'dati' su GitHub: deve contenere i file .csv")
