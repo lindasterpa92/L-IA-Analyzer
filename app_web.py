@@ -16,8 +16,10 @@ def carica_dati():
     lista = []
     for f in tutti_i_file:
         try:
-            # Carichiamo il file senza intestazione (header=None)
+            # Carichiamo forzando le colonne 1 e 2 come stringhe (testo)
             df = pd.read_csv(f, encoding='latin1', header=None)
+            # Pulizia: eliminiamo righe completamente vuote
+            df = df.dropna(subset=[1, 2])
             lista.append(df)
         except:
             continue
@@ -26,10 +28,13 @@ def carica_dati():
 db = carica_dati()
 
 if db is not None:
-    # Assegniamo noi i nomi alle colonne in base alla posizione
-    # 1 è la casa, 2 è l'ospite, 3 gol casa, 4 gol ospite
     try:
-        squadre = sorted(db[1].unique()) 
+        # Trasformiamo tutto in stringa e togliamo eventuali spazi prima di ordinare
+        db[1] = db[1].astype(str).str.strip()
+        db[2] = db[2].astype(str).str.strip()
+        
+        # Prendiamo solo i nomi unici che non siano "nan" o vuoti
+        squadre = sorted([s for s in db[1].unique() if s.lower() != 'nan' and s != ''])
         
         col1, col2 = st.columns(2)
         with col1:
@@ -38,16 +43,15 @@ if db is not None:
             ospite = st.selectbox("Squadra Ospite", squadre)
 
         if st.button("GENERA PRONOSTICO"):
-            # Filtriamo usando i numeri delle colonne
             f_casa = db[db[1] == casa]
             f_ospite = db[db[2] == ospite]
             
-            # Calcoliamo la media gol (colonne 3 e 4)
+            # Convertiamo i gol (colonne 3 e 4) in numeri, ignorando gli errori
             m_casa = pd.to_numeric(f_casa[3], errors='coerce').mean()
             m_ospite = pd.to_numeric(f_ospite[4], errors='coerce').mean()
             
             if pd.isna(m_casa) or pd.isna(m_ospite):
-                st.error("Dati insufficienti per queste squadre.")
+                st.error("Ops! Non ho abbastanza dati numerici per calcolare la media.")
             else:
                 st.success(f"Risultato Stimato: {casa} {m_casa:.1f} - {m_ospite:.1f} {ospite}")
                 
@@ -56,7 +60,8 @@ if db is not None:
                     st.warning("🔥 Suggerimento: OVER 2.5")
                 else:
                     st.info("🛡️ Suggerimento: UNDER 3.5")
+                    
     except Exception as e:
-        st.error(f"C'è un problema con la struttura dei file: {e}")
+        st.error(f"Errore tecnico: {e}")
 else:
-    st.warning("⚠️ Non ho trovato i file CSV. Assicurati che siano nella cartella 'dati' su GitHub!")
+    st.warning("⚠️ Non ho trovato i file CSV nella cartella 'dati'.")
