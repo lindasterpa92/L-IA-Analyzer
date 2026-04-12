@@ -3,20 +3,11 @@ import pandas as pd
 import glob
 import os
 
-# --- INTERFACCIA ASSISTENTE ---
+st.set_page_config(page_title="Analizzatore L-IA", page_icon="🤖")
+
 st.title("🤖 Analizzatore L-IA")
 
-# Chiediamo il nome
-nome_utente = st.text_input("Ciao! Come ti chiami?", "Ospite")
-
-# Messaggio di benvenuto che usa il nome inserito
-st.markdown(f"""
-### Ciao {nome_utente}! 👋 
-Sono il tuo Assistente Virtuale. Sono qui per aiutarti ad analizzare le partite di calcio 
-utilizzando i dati storici per calcolare le medie gol e suggerirti il pronostico più probabile.
-""")
-
-
+# --- CARICAMENTO DATI ---
 @st.cache_data
 def carica_dati():
     percorso = os.path.join("dati", "*.csv")
@@ -27,51 +18,52 @@ def carica_dati():
 
 db = carica_dati()
 
-if db is not None:
-    # Pulizia colonne (saltiamo i primi campi inutili)
-    db[3] = db[3].fillna("Vuoto").astype(str)
-    db[4] = db[4].fillna("Vuoto").astype(str)
-    
-    # Filtriamo via orari o date rimaste nei dati
-    squadre = sorted([s for s in db[3].unique() if s != "Vuoto" and ":" not in s and "/" not in s])
+# --- LOGICA CHAT ---
+if "messaggi" not in st.session_state:
+    st.session_state.messaggi = [{"role": "assistant", "content": "Ciao! Sono la tua IA calcistica. Dimmi una partita (es. Inter vs Milan) e io la analizzerò!"}]
 
-    st.divider() # Una linea elegante di separazione
-    
-    st.subheader("✍️ Configura la Partita")
-    col1, col2 = st.columns(2)
-    with col1:
-        casa = st.selectbox("Squadra in Casa", squadre)
-    with col2:
-        ospite = st.selectbox("Squadra Ospite", squadre)
+# Mostra i messaggi precedenti
+for msg in st.session_state.messaggi:
+    st.chat_message(msg["role"]).write(msg["content"])
 
-    if st.button("✨ ELABORA PRONOSTICO"):
-        if casa == ospite:
-            st.warning("⚠️ Hai selezionato la stessa squadra per entrambi i ruoli. Scegli due squadre diverse!")
-        else:
+# Input dell'utente
+prompt = st.chat_input("Scrivi qui la partita...")
+
+if prompt:
+    # Aggiungi il messaggio dell'utente alla chat
+    st.session_state.messaggi.append({"role": "user", "content": prompt})
+    st.chat_message("user").write(prompt)
+
+    # Cerchiamo di capire che squadre ha scritto l'utente (molto semplice)
+    testo = prompt.lower()
+    
+    if db is not None:
+        # Cerchiamo i nomi delle squadre nel database
+        squadre_db = db[3].dropna().unique().tolist()
+        trovate = [s for s in squadre_db if s.lower() in testo]
+
+        if len(trovate) >= 2:
+            casa, ospite = trovate[0], trovate[1]
+            
             f_casa = db[db[3] == casa]
             f_ospite = db[db[4] == ospite]
             
-            # Calcolo medie (colonne 5 e 6 per i gol)
             m_casa = pd.to_numeric(f_casa[5], errors='coerce').mean()
             m_ospite = pd.to_numeric(f_ospite[6], errors='coerce').mean()
 
-            if pd.isna(m_casa) or pd.isna(m_ospite):
-                st.error("Scusa, non ho abbastanza dati storici per generare un calcolo preciso su questa coppia.")
+            risposta = f"Analizzo **{casa} vs {ospite}**... 📊\n\n"
+            risposta += f"La media gol in casa del {casa} è {m_casa:.2f}.\n"
+            risposta += f"La media gol fuori del {ospite} è {m_ospite:.2f}.\n\n"
+            
+            if (m_casa + m_ospite) > 2.5:
+                risposta += "🔥 Consiglio: **OVER 2.5**!"
             else:
-                st.balloons()
-                st.markdown(f"## 📋 Analisi: **{casa} vs {ospite}**")
-                
-                # Box colorati per le medie
-                c1, c2 = st.columns(2)
-                c1.metric(f"Potenziale {casa}", f"{m_casa:.2f} gol")
-                c2.metric(f"Potenziale {ospite}", f"{m_ospite:.2f} gol")
-                
-                somma = m_casa + m_ospite
-                
-                st.markdown("---")
-                if somma > 2.5:
-                    st.success(f"🔥 **IL MIO CONSIGLIO:** Questa partita ha un alto potenziale offensivo. Suggerisco **OVER 2.5** (Media totale: {somma:.2f})")
-                else:
-                    st.info(f"🛡️ **IL MIO CONSIGLIO:** Le statistiche prevedono una partita chiusa. Suggerisco **UNDER 3.5** (Media totale: {somma:.2f})")
-else:
-    st.error("⚠️ Errore: Non sono riuscito a trovare il database dei file CSV.")
+                risposta += "🛡️ Consiglio: **UNDER 3.5**."
+        else:
+            risposta = "Scusa, non ho capito bene le squadre. Scrivile chiaramente, ad esempio: 'Atalanta vs Juve'."
+    else:
+        risposta = "Non ho caricato i dati, controlla la cartella 'dati'!"
+
+    # Risposta dell'IA
+    st.session_state.messaggi.append({"role": "assistant", "content": risposta})
+    st.chat_message("assistant").write(risposta)
