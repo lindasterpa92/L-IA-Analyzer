@@ -6,12 +6,14 @@ import os
 # Configurazione Pagina
 st.set_page_config(page_title="Analizzatore L-IA", page_icon="🤖")
 
-# --- INTERFACCIA STILE ASSISTENTE ---
+# --- INTERFACCIA ASSISTENTE ---
 st.title("🤖 Analizzatore L-IA")
+
+# Messaggio di benvenuto universale
 st.markdown("""
-### Ciao Linda! 👋 
-Benvenuta nel tuo assistente personale per i pronostici. 
-Scegli le partite di oggi e io calcolerò per te le probabilità basandomi sui dati storici!
+### Benvenuto nel tuo Assistente Virtuale! 👋 
+Sono qui per aiutarti ad analizzare le partite di calcio. 
+Utilizzo i dati storici per calcolare le medie gol e suggerirti il pronostico più probabile.
 """)
 
 @st.cache_data
@@ -25,42 +27,50 @@ def carica_dati():
 db = carica_dati()
 
 if db is not None:
-    # PULIZIA: Saltiamo Data (0), Orario (1), Stato (2) 
-    # Proviamo a prendere le squadre dalla colonna 3 e 4
+    # Pulizia colonne (saltiamo i primi campi inutili)
     db[3] = db[3].fillna("Vuoto").astype(str)
     db[4] = db[4].fillna("Vuoto").astype(str)
     
-    squadre = sorted([s for s in db[3].unique() if s != "Vuoto" and ":" not in s])
+    # Filtriamo via orari o date rimaste nei dati
+    squadre = sorted([s for s in db[3].unique() if s != "Vuoto" and ":" not in s and "/" not in s])
 
-    st.info("✍️ **Inserisci i dati della partita:**")
+    st.divider() # Una linea elegante di separazione
+    
+    st.subheader("✍️ Configura la Partita")
     col1, col2 = st.columns(2)
     with col1:
-        casa = st.selectbox("Chi gioca in casa?", squadre)
+        casa = st.selectbox("Squadra in Casa", squadre)
     with col2:
-        ospite = st.selectbox("Chi gioca fuori casa?", squadre)
+        ospite = st.selectbox("Squadra Ospite", squadre)
 
     if st.button("✨ ELABORA PRONOSTICO"):
-        f_casa = db[db[3] == casa]
-        f_ospite = db[db[4] == ospite]
-        
-        # I gol dovrebbero essere nelle colonne 5 e 6
-        m_casa = pd.to_numeric(f_casa[5], errors='coerce').mean()
-        m_ospite = pd.to_numeric(f_ospite[6], errors='coerce').mean()
-
-        if pd.isna(m_casa) or pd.isna(m_ospite):
-            st.warning("⚠️ Scusa Linda, per queste squadre non ho abbastanza dati nelle colonne dei gol.")
+        if casa == ospite:
+            st.warning("⚠️ Hai selezionato la stessa squadra per entrambi i ruoli. Scegli due squadre diverse!")
         else:
-            st.balloons()
-            st.markdown(f"### 📋 Analisi completata per **{casa} vs {ospite}**")
+            f_casa = db[db[3] == casa]
+            f_ospite = db[db[4] == ospite]
             
-            c1, c2 = st.columns(2)
-            c1.metric(f"Media Gol {casa}", f"{m_casa:.2f}")
-            c2.metric(f"Media Gol {ospite}", f"{m_ospite:.2f}")
-            
-            somma = m_casa + m_ospite
-            if somma > 2.5:
-                st.success(f"🔥 **Il mio consiglio:** Questa sembra una partita da **OVER 2.5** (Totale stimato: {somma:.1f})")
+            # Calcolo medie (colonne 5 e 6 per i gol)
+            m_casa = pd.to_numeric(f_casa[5], errors='coerce').mean()
+            m_ospite = pd.to_numeric(f_ospite[6], errors='coerce').mean()
+
+            if pd.isna(m_casa) or pd.isna(m_ospite):
+                st.error("Scusa, non ho abbastanza dati storici per generare un calcolo preciso su questa coppia.")
             else:
-                st.info(f"🛡️ **Il mio consiglio:** Vedo una partita tattica, suggerisco **UNDER 3.5**")
+                st.balloons()
+                st.markdown(f"## 📋 Analisi: **{casa} vs {ospite}**")
+                
+                # Box colorati per le medie
+                c1, c2 = st.columns(2)
+                c1.metric(f"Potenziale {casa}", f"{m_casa:.2f} gol")
+                c2.metric(f"Potenziale {ospite}", f"{m_ospite:.2f} gol")
+                
+                somma = m_casa + m_ospite
+                
+                st.markdown("---")
+                if somma > 2.5:
+                    st.success(f"🔥 **IL MIO CONSIGLIO:** Questa partita ha un alto potenziale offensivo. Suggerisco **OVER 2.5** (Media totale: {somma:.2f})")
+                else:
+                    st.info(f"🛡️ **IL MIO CONSIGLIO:** Le statistiche prevedono una partita chiusa. Suggerisco **UNDER 3.5** (Media totale: {somma:.2f})")
 else:
-    st.error("Linda, non trovo i file CSV! Controlla la cartella 'dati'.")
+    st.error("⚠️ Errore: Non sono riuscito a trovare il database dei file CSV.")
