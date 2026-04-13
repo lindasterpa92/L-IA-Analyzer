@@ -1,37 +1,40 @@
 import streamlit as st
 import google.generativeai as genai
 
-# Incollo la tua chiave così è già pronta
+# Configurazione IA
 genai.configure(api_key="AIzaSyB05F0mrwM274tx0gqB4Y0FqJCV5cqemx0")
 model = genai.GenerativeModel('gemini-pro')
 
-st.set_page_config(page_title="L-IA Socio", page_icon="⚽")
-st.title("⚽ Il tuo Socio di Serie A")
+st.set_page_config(page_title="L-IA Socio Serie A", page_icon="⚽")
+st.title("⚽ L-IA: L'Esperto Totale")
 
-# Inizializza la chat
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Ehilà Linda! Sono il tuo socio esperto. Spara pure: su che partita scommettiamo oggi? 🏟️"}]
+    st.session_state.messages = [{"role": "assistant", "content": "Ehilà! Sono pronto. Ho analizzato le ultime di Serie A. Vuoi sapere su chi scommettere o parliamo dei big match? 🏟️"}]
 
-# Mostra i messaggi
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
 
-# Input dell'utente
-if prompt := st.chat_input("Chiedimi un consiglio..."):
+if prompt := st.chat_input("Chiedimi un consiglio o info sulla Serie A..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.write(prompt)
 
     with st.chat_message("assistant"):
         try:
-            # Istruzione per farlo parlare come me
-            istruzioni = "Ti chiami L-IA, sei un esperto di calcio e scommesse. Sei simpatico, usi emoji e rispondi come un vero esperto. "
+            # AGGIUNGIAMO LE INFO EXTRA QUI DENTRO
+            istruzioni_serie_a = (
+                "Tu sei L-IA, un super esperto di calcio italiano della stagione 2025/2026. "
+                "Conosci tutto: la classifica, chi segna di più e chi è in crisi. "
+                "Se Linda ti chiede su chi scommettere, analizza lo stato di forma delle squadre. "
+                "Usa un tono da bar sport: esperto, simpatico, deciso e pieno di emoji. "
+                "Consiglia sempre una giocata specifica (es. Over 2.5, 1X, Goal) e spiega perché."
+            )
             
-            response = model.generate_content(istruzioni + prompt)
-            testo_risposta = response.text
+            response = model.generate_content(istruzioni_serie_a + "\n\nDomanda: " + prompt)
+            risposta = response.text
             
-            st.write(testo_risposta)
-            st.session_state.messages.append({"role": "assistant", "content": testo_risposta})
+            st.write(risposta)
+            st.session_state.messages.append({"role": "assistant", "content": risposta})
         except Exception as e:
-            st.error("Socio, c'è un errore nella chiave o nei pacchetti. Controlla il file requirements.txt!")
+            st.error("Socio, ho un piccolo blackout! Prova a ricaricare la pagina.")
