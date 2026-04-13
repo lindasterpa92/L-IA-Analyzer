@@ -1,69 +1,53 @@
 import streamlit as st
+import google.generativeai as genai
 import pandas as pd
-import glob
 import os
 
-st.set_page_config(page_title="Analizzatore L-IA", page_icon="🤖")
+# --- 1. CONFIGURAZIONE IA CON LA TUA CHIAVE ---
+CHIAVE_MIA = "AIzaSyB05F0mrwM274tx0gqB4Y0FqJCV5cqemx0"
+genai.configure(api_key=CHIAVE_MIA)
+model = genai.GenerativeModel('gemini-pro')
 
-st.title("🤖 Analizzatore L-IA")
+# Configurazione pagina
+st.set_page_config(page_title="L-IA: Il Socio Serie A", page_icon="⚽")
+st.title("⚽ L-IA: Il tuo Socio di Serie A")
 
-# --- CARICAMENTO DATI ---
-@st.cache_data
-def carica_dati():
-    percorso = os.path.join("dati", "*.csv")
-    file_csv = glob.glob(percorso)
-    if not file_csv: return None
-    lista = [pd.read_csv(f, encoding='latin1', header=None, dtype=str) for f in file_csv]
-    return pd.concat(lista, ignore_index=True)
+# --- 2. MEMORIA DELLA CHAT ---
+if "chat" not in st.session_state:
+    st.session_state.chat = [
+        {"role": "assistant", "content": "Ehilà Linda! Eccomi qui, sono il tuo socio esperto. Ho i motori accesi e sono pronto a parlare di tutto: scommesse, colpi di mercato o storia della Serie A. Cosa studiamo oggi? 🏟️"}
+    ]
 
-db = carica_dati()
+# Mostra i messaggi a schermo
+for m in st.session_state.chat:
+    with st.chat_message(m["role"]):
+        st.write(m["content"])
 
-# --- LOGICA CHAT ---
-if "messaggi" not in st.session_state:
-    st.session_state.messaggi = [{"role": "assistant", "content": "Ciao! Sono la tua IA calcistica. Dimmi una partita (es. Inter vs Milan) e io la analizzerò!"}]
+# --- 3. INPUT UTENTE ---
+if prompt := st.chat_input("Chiedimi qualsiasi cosa (es: Chi vince tra Inter e Napoli?)"):
+    # Aggiungi il tuo messaggio
+    st.session_state.chat.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.write(prompt)
 
-# Mostra i messaggi precedenti
-for msg in st.session_state.messaggi:
-    st.chat_message(msg["role"]).write(msg["content"])
-
-# Input dell'utente
-prompt = st.chat_input("Scrivi qui la partita...")
-
-if prompt:
-    # Aggiungi il messaggio dell'utente alla chat
-    st.session_state.messaggi.append({"role": "user", "content": prompt})
-    st.chat_message("user").write(prompt)
-
-    # Cerchiamo di capire che squadre ha scritto l'utente (molto semplice)
-    testo = prompt.lower()
-    
-    if db is not None:
-        # Cerchiamo i nomi delle squadre nel database
-        squadre_db = db[3].dropna().unique().tolist()
-        trovate = [s for s in squadre_db if s.lower() in testo]
-
-        if len(trovate) >= 2:
-            casa, ospite = trovate[0], trovate[1]
-            
-            f_casa = db[db[3] == casa]
-            f_ospite = db[db[4] == ospite]
-            
-            m_casa = pd.to_numeric(f_casa[5], errors='coerce').mean()
-            m_ospite = pd.to_numeric(f_ospite[6], errors='coerce').mean()
-
-            risposta = f"Analizzo **{casa} vs {ospite}**... 📊\n\n"
-            risposta += f"La media gol in casa del {casa} è {m_casa:.2f}.\n"
-            risposta += f"La media gol fuori del {ospite} è {m_ospite:.2f}.\n\n"
-            
-            if (m_casa + m_ospite) > 2.5:
-                risposta += "🔥 Consiglio: **OVER 2.5**!"
-            else:
-                risposta += "🛡️ Consiglio: **UNDER 3.5**."
-        else:
-            risposta = "Scusa, non ho capito bene le squadre. Scrivile chiaramente, ad esempio: 'Atalanta vs Juve'."
-    else:
-        risposta = "Non ho caricato i dati, controlla la cartella 'dati'!"
-
-    # Risposta dell'IA
-    st.session_state.messaggi.append({"role": "assistant", "content": risposta})
-    st.chat_message("assistant").write(risposta)
+    # --- 4. RISPOSTA DELL'IA ---
+    with st.chat_message("assistant"):
+        with st.spinner("Il socio sta pensando..."):
+            try:
+                # Istruzione per dare personalità al tuo socio
+                personalita = (
+                    "Tu sei l'assistente dell'app 'Analizzatore L-IA'. "
+                    "Sei un esperto di calcio italiano, simpatico, un po' spaccone ma molto competente. "
+                    "Rispondi in modo amichevole a Linda e agli utenti, usa le emoji e dai consigli diretti sulle scommesse "
+                    "basandoti sulla tua conoscenza del calcio. Se ti chiedono cose non calcistiche, "
+                    "rispondi pure ma cerca di riportare il discorso sul calcio appena puoi!"
+                )
+                
+                # Genera la risposta
+                response = model.generate_content(personalita + "\n\nUtente: " + prompt)
+                risposta = response.text
+                
+                st.write(risposta)
+                st.session_state.chat.append({"role": "assistant", "content": risposta})
+            except Exception as e:
+                st.write("Socio, ho un piccolo problema tecnico con la connessione. Riprova tra un secondo!")
