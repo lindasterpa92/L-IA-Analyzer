@@ -4,8 +4,8 @@ import google.generativeai as genai
 # La tua chiave
 genai.configure(api_key="AIzaSyAgIXxz2h6c2j_87yzuJz9SSpIZjuNN7JM")
 
-# MODELLO AGGIORNATO ALLA VERSIONE DEFINITIVA:
-model = genai.GenerativeModel('gemini-1.5-flash-latest')
+# PROVIAMO IL NOME MODELLO PIÙ COMPATIBILE
+model = genai.GenerativeModel('models/gemini-1.5-flash')
 
 st.title("⚽ Il Socio Serie A")
 
@@ -23,9 +23,11 @@ if prompt := st.chat_input("Socio, chi vince oggi?"):
     
     with st.chat_message("assistant"):
         try:
-            # Istruzione di base
-            res = model.generate_content("Sei un esperto di calcio Serie A. Rispondi a: " + prompt)
+            # Chiamata al modello
+            res = model.generate_content(prompt)
             st.write(res.text)
             st.session_state.messages.append({"role": "assistant", "content": res.text})
         except Exception as e:
-            st.error(f"Errore: {e}")
+            # Se dà ancora errore, stampiamo un consiglio
+            st.error(f"Errore tecnico: {e}")
+            st.info("Socio, stiamo sistemando i cavi della connessione. Riprova tra un attimo!")
